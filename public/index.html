@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#E0522A">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23E0522A' d='M12.4 1.6c.5 3.1-.9 4.9-2.4 6.6-1.6 1.8-3.4 3.7-3.4 7.1 0 3.9 2.6 7.1 5.9 7.1s6-2.9 6-6.8c0-2.9-1.4-4.7-2.6-6.2-.3 1.6-1 2.7-2 3.1.4-3.9-.4-7.9-1.5-10.9z'/%3E%3C/svg%3E">
+<title>Streak Harian Ega</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one narrow column — streak hero, tap-to-check habit grid, 7-day strip, heatmap, stats */
+:root{
+  --bg:#F4F5F8; --surface:#FFFFFF; --ink:#15171C; --muted:#5D6371; --line:#E2E5EC;
+  --ember:#E0522A; --ember-ink:#FFFFFF; --ember-soft:#FBE4DB; --good:#23885C;
+  --f-display:"Bricolage Grotesque", "Inter", system-ui, sans-serif;
+  --f-body:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-num:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0E1014; --surface:#171A20; --ink:#ECEEF2; --muted:#959CAB; --line:#272B34;
+  --ember:#FF7448; --ember-ink:#1A0B05; --ember-soft:#3A1E15; --good:#4CC28B; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0E1014; --surface:#171A20; --ink:#ECEEF2; --muted:#959CAB; --line:#272B34;
+  --ember:#FF7448; --ember-ink:#1A0B05; --ember-soft:#3A1E15; --good:#4CC28B; color-scheme:dark }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;-webkit-font-smoothing:antialiased;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:680px;margin:0 auto;padding-block:28px 64px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));
+  display:flex;flex-direction:column;gap:28px}
+h1,h2{font-family:var(--f-display);margin:0;text-wrap:balance}
+h2{font-size:1.05rem;font-weight:600;letter-spacing:.01em}
+.label{font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--ember);outline-offset:2px}
+
+/* hero */
+.hero{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.hero-main{display:flex;align-items:flex-end;gap:14px}
+.flame{width:64px;height:64px;flex:none;color:var(--line);transition:color .3s}
+.flame.lit{color:var(--ember)}
+.flame.pulse{animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.06) translateY(-2px)}}
+@media (prefers-reduced-motion: reduce){.flame.pulse{animation:none}}
+.big{font-family:var(--f-display);font-weight:800;font-size:clamp(3.2rem,12vw,4.6rem);line-height:.9;letter-spacing:-.03em}
+.big small{font-size:.32em;font-weight:600;letter-spacing:0;color:var(--muted);margin-left:6px}
+.hero-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px;text-align:right}
+.today{font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:.78rem;font-weight:600;background:var(--ember-soft);color:var(--ember)}
+.pill[data-state="perfect"]{background:var(--ember);color:var(--ember-ink)}
+.milestone{display:flex;flex-direction:column;gap:6px;margin-top:-12px}
+.bar{height:6px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--ember);border-radius:inherit;transition:width .4s}
+.ms-text{font-size:.82rem;color:var(--muted)}
+
+/* editing banner */
+.editing{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;border:1px dashed var(--ember);border-radius:var(--r);font-size:.88rem}
+.link{background:none;border:0;color:var(--ember);font-weight:600;padding:0}
+
+/* habits */
+.habits{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (min-width:620px){.habits{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.habit{position:relative;display:flex;flex-direction:column;gap:14px;text-align:left;padding:16px;border-radius:var(--r);
+  background:var(--surface);border:1.5px solid var(--line);transition:background .2s,border-color .2s,transform .1s;min-height:150px}
+.habit:active{transform:scale(.98)}
+.habit .top{display:flex;justify-content:space-between;align-items:flex-start}
+.habit .ico{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--bg);color:var(--muted)}
+.habit .ico svg{width:20px;height:20px}
+.check{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;color:transparent}
+.check svg{width:16px;height:16px}
+.habit .name{font-family:var(--f-display);font-weight:600;font-size:1.08rem;line-height:1.2}
+.habit .sub{font-size:.8rem;color:var(--muted)}
+.habit .st{margin-top:auto;font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:5px}
+.habit .st svg{width:14px;height:14px}
+.habit[aria-pressed="true"]{background:var(--ember);border-color:var(--ember);color:var(--ember-ink)}
+.habit[aria-pressed="true"] .ico{background:color-mix(in srgb, var(--ember-ink) 16%, transparent);color:var(--ember-ink)}
+.habit[aria-pressed="true"] .check{border-color:var(--ember-ink);background:var(--ember-ink);color:var(--ember)}
+.habit[aria-pressed="true"] .sub,.habit[aria-pressed="true"] .st{color:color-mix(in srgb, var(--ember-ink) 78%, transparent)}
+
+/* fasting */
+.fast{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 16px;padding:14px 16px;border-radius:var(--r);background:var(--surface);border:1.5px solid var(--line)}
+.fast-info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.timer{font-family:var(--f-num);font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.timer.done{color:var(--good)}
+.fast-ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.chips{display:flex;border:1px solid var(--line);border-radius:99px;padding:2px}
+.chip{border:0;background:none;padding:4px 10px;border-radius:99px;font-size:.8rem;font-family:var(--f-num);color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.btn{border:0;border-radius:99px;padding:9px 16px;font-weight:600;font-size:.88rem;background:var(--ink);color:var(--bg)}
+.btn.ember{background:var(--ember);color:var(--ember-ink)}
+
+/* week strip */
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.day{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 0 8px;border-radius:12px;border:1.5px solid transparent;background:none}
+.day .wd{font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.day .dn{font-family:var(--f-num);font-weight:700;font-size:.95rem}
+.dots{display:grid;grid-template-columns:repeat(3,6px);gap:3px}
+.dots i{width:6px;height:6px;border-radius:50%;background:var(--line)}
+.dots i.on{background:var(--ember)}
+.day[aria-current="date"]{background:var(--surface);border-color:var(--line)}
+.day.sel{border-color:var(--ember)}
+
+/* heatmap */
+.card{background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px}
+.sec-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.heat-scroll{overflow-x:auto;padding-bottom:4px}
+.heat{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,14px);gap:3px;width:max-content}
+.cell{width:14px;height:14px;border-radius:3px;border:0;padding:0;background:var(--line)}
+.cell[data-l="1"]{background:color-mix(in srgb, var(--ember) 30%, var(--surface))}
+.cell[data-l="2"]{background:color-mix(in srgb, var(--ember) 52%, var(--surface))}
+.cell[data-l="3"]{background:color-mix(in srgb, var(--ember) 76%, var(--surface))}
+.cell[data-l="4"]{background:var(--ember)}
+.cell.future{background:transparent;cursor:default}
+.cell.sel{outline:2px solid var(--ink);outline-offset:1px}
+.legend{display:flex;align-items:center;gap:4px;font-size:.72rem;color:var(--muted)}
+.legend .cell{cursor:default;width:11px;height:11px}
+
+/* stats */
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th{font-weight:600;text-align:right;white-space:nowrap;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;padding:0 0 8px}
+th,td{padding-left:12px}
+th:first-child,td:first-child{padding-left:0}
+th:first-child{text-align:left}
+td{padding:10px 0;border-top:1px solid var(--line);text-align:right}
+td:first-child{text-align:left;font-weight:500}
+
+.note{font-size:.8rem;color:var(--muted);text-align:center}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom, 0px));transform:translate(-50%,20px);opacity:0;pointer-events:none;
+  background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font-size:.88rem;font-weight:500;transition:.25s;max-width:calc(100% - 32px);text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* login */
+.login{min-height:70vh;display:grid;place-items:center}
+.login form{width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px;text-align:center}
+.login input{font:inherit;padding:12px 14px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink)}
+.login input:focus{outline:2px solid var(--ember);outline-offset:1px;border-color:transparent}
+.err{color:var(--ember);font-size:.85rem;min-height:1.2em}
+.loading .habit,.loading .week{opacity:.55}
+
+@media (max-width:420px){
+  .habit{min-height:138px;padding:14px}
+  .hero-side{align-items:flex-start;text-align:left}
+}
+</style>
+
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-flame" viewBox="0 0 24 24"><path fill="currentColor" d="M12.4 1.6c.5 3.1-.9 4.9-2.4 6.6-1.6 1.8-3.4 3.7-3.4 7.1 0 3.9 2.6 7.1 5.9 7.1s6-2.9 6-6.8c0-2.9-1.4-4.7-2.6-6.2-.3 1.6-1 2.7-2 3.1.4-3.9-.4-7.9-1.5-10.9zM12.3 20.5c-1.6 0-2.8-1.3-2.8-3.1 0-1.6.8-2.6 1.7-3.6.2 1.2.9 1.9 1.7 2.1-.1-1 .2-2 .9-2.8.7.9 1.3 1.9 1.3 3.4 0 2.3-1.2 4-2.8 4z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M12 3l7.5 3v5.5c0 4.6-3.2 8.2-7.5 9.5-4.3-1.3-7.5-4.9-7.5-9.5V6L12 3z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M5 19c0-8 5-13 15-14-1 10-6 15-14 15"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M5 19c3-4 6-7 10-9"/></symbol>
+  <symbol id="i-run" viewBox="0 0 24 24"><circle cx="14.5" cy="4.5" r="2" fill="currentColor"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M7 11l3-3.5 4 1.5 2 3.5 3 1M10 7.5l-1.5 6 4 3-1.5 4.5M8.5 13.5L5 15"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 9v4l2.5 2M9.5 2.5h5"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 5.5C4 4.7 4.7 4 5.5 4H11v15H5.5c-.8 0-1.5.7-1.5 1.5zM20 5.5c0-.8-.7-1.5-1.5-1.5H13v15h5.5c.8 0 1.5.7 1.5 1.5z"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" d="M15 4.5l4.5 4.5L9 19.5H4.5V15zM12.5 7l4.5 4.5M4 21h16"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+</svg>
+
+<section class="wrap login" id="login" hidden>
+  <form id="loginForm">
+    <svg class="flame lit" style="margin:0 auto" aria-hidden="true"><use href="#i-flame"/></svg>
+    <h1 style="font-size:1.6rem">Streak Harian</h1>
+    <label class="label" for="pw">Password</label>
+    <input id="pw" type="password" autocomplete="current-password" required>
+    <button class="btn ember" type="submit">Masuk</button>
+    <div class="err" id="loginErr" role="alert"></div>
+  </form>
+</section>
+
+<main class="wrap loading" id="app">
+  <header class="hero">
+    <div class="hero-main">
+      <svg class="flame" id="heroFlame" aria-hidden="true"><use href="#i-flame"/></svg>
+      <div>
+        <div class="label">Hari sempurna beruntun</div>
+        <div class="big"><span id="perfectStreak" class="num" style="font-family:inherit">0</span><small>hari</small></div>
+      </div>
+    </div>
+    <div class="hero-side">
+      <div class="today" id="todayLabel"></div>
+      <span class="pill" id="dayPill">0 / 6 hari ini</span>
+    </div>
+  </header>
+
+  <div class="milestone">
+    <div class="bar"><i id="msBar" style="width:0%"></i></div>
+    <div class="ms-text" id="msText"></div>
+  </div>
+
+  <div class="editing" id="editing" hidden>
+    <span id="editingText"></span>
+    <button class="link" id="backToday" type="button">Balik ke hari ini</button>
+  </div>
+
+  <section class="habits" id="habits" aria-label="Checklist hari ini"></section>
+
+  <section class="fast" aria-label="Timer puasa">
+    <div class="fast-info">
+      <span class="label">Timer puasa</span>
+      <span class="timer" id="fastTimer">Belum mulai</span>
+      <span class="ms-text" id="fastHint">Tap mulai pas suapan terakhir.</span>
+    </div>
+    <div class="fast-ctrl">
+      <div class="chips" role="group" aria-label="Target jam puasa" id="fastChips"></div>
+      <button class="btn ember" id="fastBtn" type="button">Mulai puasa</button>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:10px">
+    <div class="sec-head"><h2>7 hari terakhir</h2><span class="ms-text">Tap hari buat ngedit yang kelupaan</span></div>
+    <div class="week" id="week"></div>
+  </section>
+
+  <section class="card">
+    <div class="sec-head">
+      <h2>18 minggu</h2>
+      <div class="legend">dikit <span class="cell" data-l="0"></span><span class="cell" data-l="1"></span><span class="cell" data-l="2"></span><span class="cell" data-l="3"></span><span class="cell" data-l="4"></span> 6/6</div>
+    </div>
+    <div class="heat-scroll" id="heatScroll"><div class="heat" id="heat"></div></div>
+  </section>
+
+  <section class="card">
+    <h2>Rekor</h2>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Kebiasaan</th><th>Sekarang</th><th>Terbaik</th><th>30 hari</th></tr></thead>
+        <tbody id="stats"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="note" id="syncNote">Ngambil data…</p>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+let HABITS = [];                     // diambil dari /api/state (sumbernya lib/habits.js)
+const MILESTONES = [3,7,14,21,30,60,90,180,365];
+const $ = id => document.getElementById(id);
+
+let days = {};                       // "YYYY-MM-DD" -> {pmo:true, ...}
+let settings = {fastTarget:16, fastStart:null};
+let selected = todayKey();
+let loaded = false;
+
+/* ---------- dates (zona waktu browser = WIB) ---------- */
+function keyOf(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function todayKey(){ return keyOf(new Date()); }
+function parse(k){ const [y,m,d]=k.split("-").map(Number); return new Date(y,m-1,d); }
+function shift(k,n){ const d=parse(k); d.setDate(d.getDate()+n); return keyOf(d); }
+function fmt(k,opt){ return parse(k).toLocaleDateString("id-ID",opt); }
+
+/* ---------- streak math ---------- */
+const done = (k,h) => !!(days[k] && days[k][h]);
+const perfect = k => HABITS.length>0 && HABITS.every(h => done(k,h.k));
+const countOf = k => HABITS.filter(h => done(k,h.k)).length;
+const level = k => { const c = countOf(k), n = HABITS.length || 1; return c===0 ? 0 : c===n ? 4 : Math.max(1, Math.min(3, Math.ceil(c/n*3))); };
+
+function current(test){
+  let k = todayKey(), n = 0;
+  if(!test(k)) k = shift(k,-1);           // hari ini belum lewat, streak belum putus
+  while(test(k)){ n++; k = shift(k,-1); }
+  return n;
+}
+function best(test){
+  const keys = Object.keys(days).sort();
+  if(!keys.length) return 0;
+  let k = keys[0], end = todayKey(), run = 0, top = 0;
+  while(k <= end){ run = test(k) ? run+1 : 0; if(run>top) top=run; k = shift(k,1); }
+  return top;
+}
+function rate30(test){ let n=0,k=todayKey(); for(let i=0;i<30;i++){ if(test(k)) n++; k=shift(k,-1);} return Math.round(n/30*100); }
+
+/* ---------- render ---------- */
+function render(){
+  const t = todayKey(), N = HABITS.length;
+  if(selected > t) selected = t;
+  const ps = current(perfect);
+  $("perfectStreak").textContent = ps;
+  const fl = $("heroFlame"); fl.classList.toggle("lit", ps>0); fl.classList.toggle("pulse", perfect(t));
+  $("todayLabel").textContent = fmt(t,{weekday:"long",day:"numeric",month:"long"});
+  const c = countOf(t), pill = $("dayPill");
+  pill.textContent = N && c===N ? "Hari sempurna" : c+" / "+N+" hari ini";
+  pill.dataset.state = N && c===N ? "perfect" : "";
+
+  const next = MILESTONES.find(m => m > ps) || ps+100;
+  const prev = [...MILESTONES].reverse().find(m => m <= ps) || 0;
+  $("msBar").style.width = Math.round((ps-prev)/(next-prev)*100)+"%";
+  $("msText").textContent = ps===0
+    ? "Centang "+N+" kebiasaan hari ini buat nyalain api."
+    : (next-ps)+" hari lagi ke target "+next+" hari.";
+
+  const editingPast = selected !== t;
+  $("editing").hidden = !editingPast;
+  if(editingPast) $("editingText").textContent = "Lagi ngedit "+fmt(selected,{weekday:"long",day:"numeric",month:"short"});
+
+  const wrap = $("habits"); wrap.textContent = "";
+  for(const h of HABITS){
+    const on = done(selected,h.k), s = current(k => done(k,h.k));
+    const b = document.createElement("button");
+    b.type="button"; b.className="habit"; b.id="habit-"+h.k; b.setAttribute("aria-pressed", on);
+    b.innerHTML = `<div class="top"><span class="ico"><svg><use href="#${h.icon}"/></svg></span><span class="check"><svg><use href="#i-check"/></svg></span></div>
+      <div><div class="name"></div><div class="sub"></div></div>
+      <div class="st"><svg><use href="#i-flame"/></svg><span class="num">${s}</span> hari</div>`;
+    b.querySelector(".name").textContent = h.name;
+    b.querySelector(".sub").textContent = h.k==="fast" ? "Target "+settings.fastTarget+" jam" : h.sub;
+    b.onclick = () => toggle(h.k);
+    b.disabled = !loaded;
+    wrap.appendChild(b);
+  }
+
+  const week = $("week"); week.textContent = "";
+  for(let i=6;i>=0;i--){
+    const k = shift(t,-i);
+    const b = document.createElement("button");
+    b.type="button"; b.className="day"+(k===selected?" sel":"");
+    if(k===t) b.setAttribute("aria-current","date");
+    b.setAttribute("aria-label", fmt(k,{weekday:"long",day:"numeric"})+", "+countOf(k)+" dari "+N);
+    b.innerHTML = `<span class="wd">${fmt(k,{weekday:"short"})}</span><span class="dn">${parse(k).getDate()}</span>
+      <span class="dots">${HABITS.map(h=>`<i class="${done(k,h.k)?"on":""}"></i>`).join("")}</span>`;
+    b.onclick = () => { selected = k; render(); };
+    week.appendChild(b);
+  }
+
+  const heat = $("heat"); heat.textContent = "";
+  const dow = (parse(t).getDay()+6)%7;  // Senin = 0
+  let k = shift(t, -(dow + 17*7));
+  for(let i=0;i<18*7;i++){
+    const cell = document.createElement("button");
+    cell.type="button"; cell.className="cell";
+    if(k > t){ cell.classList.add("future"); cell.disabled = true; cell.tabIndex=-1; }
+    else {
+      cell.dataset.l = level(k);
+      cell.title = fmt(k,{day:"numeric",month:"short"})+" · "+countOf(k)+"/"+N;
+      const kk = k; cell.onclick = () => { selected = kk; render(); window.scrollTo({top:0,behavior:"smooth"}); };
+      if(k===selected) cell.classList.add("sel");
+    }
+    heat.appendChild(cell);
+    k = shift(k,1);
+  }
+
+  const rows = [...HABITS.map(h => ({name:h.name, test:k=>done(k,h.k)})), {name:"Hari sempurna", test:perfect}];
+  const tb = $("stats"); tb.textContent = "";
+  for(const r of rows){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td></td><td class="num">${current(r.test)}</td><td class="num">${best(r.test)}</td><td class="num">${rate30(r.test)}%</td>`;
+    tr.firstChild.textContent = r.name;
+    tb.appendChild(tr);
+  }
+
+  renderFast();
+}
+
+function renderFast(){
+  const chips = $("fastChips");
+  if(!chips.childElementCount){
+    for(const h of [14,16,18,20]){
+      const c = document.createElement("button");
+      c.type="button"; c.className="chip"; c.id="fast-"+h; c.textContent = h+"j";
+      c.onclick = () => { settings = {...settings, fastTarget:h}; saveSettings(); render(); };
+      chips.appendChild(c);
+    }
+  }
+  for(const c of chips.children) c.setAttribute("aria-pressed", c.id==="fast-"+settings.fastTarget);
+  tick();
+}
+
+function tick(){
+  const start = settings.fastStart, tm = $("fastTimer"), btn = $("fastBtn"), hint = $("fastHint");
+  btn.disabled = !loaded;
+  if(!start){
+    tm.textContent = "Belum mulai"; tm.classList.remove("done");
+    btn.textContent = "Mulai puasa"; btn.classList.add("ember");
+    hint.textContent = "Tap mulai pas suapan terakhir.";
+    return;
+  }
+  const ms = Date.now()-start, h = Math.floor(ms/3600000), m = Math.floor(ms/60000)%60, s = Math.floor(ms/1000)%60;
+  tm.textContent = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+  const reached = ms >= settings.fastTarget*3600000;
+  tm.classList.toggle("done", reached);
+  btn.textContent = "Buka puasa"; btn.classList.remove("ember");
+  hint.textContent = reached ? "Target tembus. Buka puasa buat nyentang otomatis."
+    : "Sisa "+fmtDur(settings.fastTarget*3600000-ms)+" lagi ke "+settings.fastTarget+" jam.";
+}
+function fmtDur(ms){ const h=Math.floor(ms/3600000), m=Math.floor(ms/60000)%60; return (h? h+"j ":"")+m+"m"; }
+
+/* ---------- API ---------- */
+async function api(path, body){
+  const r = await fetch(path, body ? {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)} : {cache:"no-store"});
+  if(r.status === 401){ showLogin(); throw new Error("unauthorized"); }
+  const data = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error(data.error || "Server error "+r.status);
+  return data;
+}
+
+// Satu request per (tanggal, kebiasaan) dalam satu waktu; tap beruntun cuma ngirim state terakhir.
+const queue = {};
+function send(id, path, body){
+  const slot = queue[id] || (queue[id] = {busy:false, next:null});
+  slot.next = {path, body};
+  if(slot.busy) return;
+  (async () => {
+    slot.busy = true;
+    while(slot.next){
+      const job = slot.next; slot.next = null;
+      try{ await api(job.path, job.body); }
+      catch(e){ if(e.message !== "unauthorized") { toast("Gagal nyimpen: "+e.message); refresh(); } }
+    }
+    slot.busy = false;
+  })();
+}
+const saveDay = (k,h,v) => send("d:"+k+":"+h, "/api/day", {date:k, habit:h, done:v});
+const saveSettings = () => send("settings", "/api/settings", {fastTarget:settings.fastTarget, fastStart:settings.fastStart});
+
+async function refresh(){
+  if(Object.values(queue).some(q => q.busy)) return;   // jangan timpa perubahan yang lagi dikirim
+  try{
+    const data = await api("/api/state");
+    HABITS = data.habits; days = data.days || {}; settings = {...settings, ...data.settings};
+    loaded = true;
+    $("app").classList.remove("loading");
+    $("syncNote").textContent = "Tersimpan di database. Update terakhir "+new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})+".";
+    render();
+  }catch(e){
+    if(e.message !== "unauthorized") $("syncNote").textContent = "Nggak bisa ngambil data: "+e.message;
+  }
+}
+
+/* ---------- actions ---------- */
+function toggle(h){
+  const k = selected, cur = {...(days[k]||{})};
+  cur[h] = !cur[h];
+  days = {...days, [k]:cur};
+  render();
+  saveDay(k, h, cur[h]);
+  if(k===todayKey() && cur[h] && perfect(k)) toast(HABITS.length+"/"+HABITS.length+". Api lo nyala "+current(perfect)+" hari.");
+}
+
+$("fastBtn").onclick = () => {
+  if(!settings.fastStart){
+    settings = {...settings, fastStart:Date.now()};
+    saveSettings(); toast("Puasa dimulai. Semangat.");
+  } else {
+    const ms = Date.now()-settings.fastStart;
+    settings = {...settings, fastStart:null};
+    saveSettings();
+    if(ms >= settings.fastTarget*3600000){
+      const k = todayKey();
+      days = {...days, [k]:{...(days[k]||{}), fast:true}};
+      saveDay(k, "fast", true);
+      toast("Puasa "+fmtDur(ms)+" tercatat. Fasting dicentang.");
+    } else toast("Baru "+fmtDur(ms)+". Belum nyampe "+settings.fastTarget+" jam, jadi belum dicentang.");
+  }
+  render();
+};
+$("backToday").onclick = () => { selected = todayKey(); render(); };
+setInterval(() => { if(settings.fastStart) tick(); if(selected > todayKey()) render(); }, 1000);
+// Sinkron lagi tiap balik ke tab (misal abis nyentang lewat Telegram)
+document.addEventListener("visibilitychange", () => { if(!document.hidden && loaded) refresh(); });
+
+let toastT;
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),2600); }
+
+/* ---------- login ---------- */
+function showLogin(){ $("app").hidden = true; $("login").hidden = false; $("pw").focus(); }
+$("loginForm").onsubmit = async e => {
+  e.preventDefault();
+  $("loginErr").textContent = "";
+  const r = await fetch("/api/login", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({password:$("pw").value})});
+  if(r.ok){ $("login").hidden = true; $("app").hidden = false; $("pw").value = ""; refresh(); }
+  else { const d = await r.json().catch(()=>({})); $("loginErr").textContent = d.error || "Gagal masuk"; }
+};
+
+render();
+refresh();
+</script>
+</body>
+</html>
